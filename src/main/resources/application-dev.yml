@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: 'EcoDom'
+  datasource:
+    url: jdbc:postgresql://localhost:5454/dev
+    driverClassName: org.postgresql.Driver
+    username: eco
+    password: dom
+  jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dev-m37m1ey1svnrduyu.us.auth0.com/
+          audiences:  https://ecodom-auth
+      client:
+        registration:
+          github:
+            client-id: OAUTH_CLIENT_REGISTRATION_GITHUB_CLIENT-ID
+            client-secret: OAUTH_CLIENT_REGISTRATION_GITHUB_CLIENT-SECRET
+            scope: read:user
+          google:
+            client-id: OAUTH_CLIENT_REGISTRATION_GOOGLE_CLIENT-ID
+            client-secret: OAUTH_CLIENT_REGISTRATION_GOOGLE_CLIENT-SECRET
+            scope:
+              - openid
+              - profile
+              - email
+  config:
+    import: [ "classpath:breeds.properties", "classpath:cert.properties" ]
+server:
+  port: 8081
+logging:
+  level:
+    org.springframework.security: DEBUG
+    thymeleaf: DEBUG
+    org.hibernate: DEBUG
+frontend:
+  url: http://localhost:4000
+external:
+  tariff:
+    api:
+      base-url: https://energy-instrat-api.azurewebsites.net/api/prices/energy_price_rdn_hourly?
+secrets:
+  jwt:
+    key: SECRETS_JWT_KEY
+    expirationMs: 172800000
