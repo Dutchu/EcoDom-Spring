@@ -1,23 +1,24 @@
 package edu.weeia.ecodom.services.websocket;
 
 import edu.weeia.ecodom.api.v1.model.DeviceStatusDto;
-import edu.weeia.ecodom.api.v1.model.HouseEnergySummaryDto;
 import edu.weeia.ecodom.domain.Device;
 import edu.weeia.ecodom.domain.House;
-import edu.weeia.ecodom.domain.UsageHistory;
 import edu.weeia.ecodom.services.DeviceService;
 import edu.weeia.ecodom.services.HouseService;
 import edu.weeia.ecodom.services.SimulationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 // DeviceStatusPublisher.java
@@ -29,6 +30,19 @@ public class DeviceStatusPublisher {
     private final SimulationService simulationService;
     private final HouseService houseService;
 
+    @Operation(
+            summary = "Subscribe to real-time device status updates",
+            description = "Clients can subscribe to `/topic/house/{houseId}/devices` to receive updates on device statuses.",
+            responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Returns a list of devices with their statuses.",
+                    content = @Content(
+                            array = @ArraySchema(schema = @Schema(implementation = DeviceStatusDto.class))
+                    )
+            )
+    )
+    @MessageMapping("/house/{houseId}/devices") // Client sends message here
+    @SendTo("/topic/house/{houseId}/devices") // Clients subscribe here
     @Scheduled(fixedRate = 5000) // 5-second heartbeat
     public void publishHouseStatuses() {
         // Get all houses (you might want to optimize this)

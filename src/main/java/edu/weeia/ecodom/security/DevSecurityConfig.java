@@ -17,12 +17,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -81,13 +79,30 @@ public class DevSecurityConfig {
             "/dog/**",
             "/error/**",
             "/index",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
+            "/h2-console/**",
+            "/ws/**",
+            "/app/**",
+            "/topic/**",
+            "/api/auth/public/**",
+
     };
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http, AuthMapper authMapper) throws Exception {
         http.csrf(csrf ->
                 csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers(
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/h2-console/**",
+                                "/ws/**",
+                                "/app/**",
+                                "/topic/**",
+                                "/api/auth/public/**"
+                        )
                         .ignoringRequestMatchers("/ws/**", "/app/**", "/topic/**")
                         .ignoringRequestMatchers("/api/auth/public/**"));
         http
@@ -128,8 +143,8 @@ public class DevSecurityConfig {
     @Bean
     @Order(1)
     public CommandLineRunner initUserData(AuthorityRepository roleRepository,
-                                      AppUserRepository userRepository,
-                                      PasswordEncoder passwordEncoder) {
+                                          AppUserRepository userRepository,
+                                          PasswordEncoder passwordEncoder) {
         return args -> {
             Authority userAuthority = roleRepository.findByRoleName(AppAuthority.ROLE_USER)
                     .orElseGet(() -> roleRepository.save(new Authority(AppAuthority.ROLE_USER)));

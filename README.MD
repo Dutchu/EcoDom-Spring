@@ -111,11 +111,12 @@ The frontend is expected to run on `http://localhost:3000`. Ensure your frontend
 Once the application is running, you can access the API documentation:
 
 - **Swagger UI:** `http://localhost:8081/swagger-ui.html`
-- **API Endpoints:** Defined in your controllers
+- **REST API Endpoints:** Defined in your controllers
+- **WebSockets API Endpoints:** edu/weeia/ecodom/services/websocket
 
 ---
 
-## Logging
+### 8. Logging
 
 Logging is configured using **Logback**, with logs written to the console and a file at `logs/myapp.log`. Log levels are set as follows:
 
@@ -141,23 +142,13 @@ export LOGGING_LEVEL_ROOT=OFF
 
 ---
 
-## Deployment
-
-For production deployment, ensure:
-
-- **Environment variables** are securely stored.
-- **Database credentials** are configured properly.
-- **Frontend URL** is updated in `application.yml`.
-- **Security configurations** are properly managed.
-
----
-
 ## What's Missing?
 
-- **Frontend setup:** If there is a separate frontend, its setup and installation steps should be documented.
+- **Frontend setup:** https://github.com/Dutchu/EcoDom-React
 - **API details:** A list of available endpoints, request formats, and responses.
 - **Admin credentials or role-based access configuration.**
-- **Production deployment guide:** Instructions for deploying on a cloud provider.
+>DevSecurityConfig.java
+>>initUserData()
 
 ---
 
