@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copy the packaged jar file into the Docker image
-COPY target/cynodesu-0.0.1-SNAPSHOT.jar app.jar
+COPY target/ecodom-0.0.1-SNAPSHOT.jar app.jar
 
 # Expose the port that the application will run on
 EXPOSE 8080

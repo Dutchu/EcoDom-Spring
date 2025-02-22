@@ -17,9 +17,9 @@ import java.util.Arrays;
 @Slf4j
 @EnableCaching
 @EnableConfigurationProperties(AppProperties.class)
-public class CynoDesuApplication {
+public class EcoDomApplication {
 	public static void main(String[] args) throws UnknownHostException {
-		ApplicationContext ctx = SpringApplication.run(CynoDesuApplication.class, args);
+		ApplicationContext ctx = SpringApplication.run(EcoDomApplication.class, args);
 		Environment env = ctx.getEnvironment();
 
 		String banner = String.format("""
