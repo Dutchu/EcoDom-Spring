@@ -1,6 +1,7 @@
 package edu.weeia.ecodom.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import edu.weeia.ecodom.configuration.Constants;
 import jakarta.persistence.*;
 import jakarta.persistence.Entity;
@@ -51,7 +52,8 @@ public class AppUser extends BaseAuditingEntity {
     @BatchSize(size = Constants.BATCH_SIZE)
     private Set<Authority> authorities = new HashSet<>();
 
-    @OneToMany(mappedBy = "userId")
+    @JsonManagedReference
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "appUser")
     private Set<House> houses = new HashSet<>();
 
     @Column(nullable = false)

@@ -1,7 +1,6 @@
 package edu.weeia.ecodom.exceptions;
 
 public class AuthenticationFailedException extends RuntimeException {
-
     // Default constructor
     public AuthenticationFailedException() {
         super("There was a problem while authenticating request.");

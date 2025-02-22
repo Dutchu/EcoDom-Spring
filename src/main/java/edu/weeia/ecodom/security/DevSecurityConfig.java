@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -29,6 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 import java.util.Set;
 
@@ -78,25 +80,31 @@ public class DevSecurityConfig {
             "/favicon.ico",
             "/dog/**",
             "/error/**",
-            "/index"
+            "/index",
+            "/swagger-ui.html"
     };
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http, AuthMapper authMapper) throws Exception {
+        http.csrf(csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers("/ws/**", "/app/**", "/topic/**")
+                        .ignoringRequestMatchers("/api/auth/public/**"));
         http
                 .headers(headers -> headers
                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
                 .authorizeHttpRequests(ah -> ah
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(AUTH_WHITELIST).permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority(AppAuthority.ROLE_ADMIN.name())
+                        .requestMatchers("/api/csrf-token").permitAll()
                         .requestMatchers("/api/auth/public/**").permitAll()
                         .requestMatchers("/oauth2/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userAuthoritiesMapper(authMapper))// Use custom mapper
-                        .successHandler(successHandler)) // Your existing handler
-                .csrf(AbstractHttpConfigurer::disable);
+                        .successHandler(successHandler)); // Your existing handler
 
         http.exceptionHandling(exception
                 -> exception.authenticationEntryPoint(unauthorizedHandler));
@@ -118,7 +126,8 @@ public class DevSecurityConfig {
     }
 
     @Bean
-    public CommandLineRunner initData(AuthorityRepository roleRepository,
+    @Order(1)
+    public CommandLineRunner initUserData(AuthorityRepository roleRepository,
                                       AppUserRepository userRepository,
                                       PasswordEncoder passwordEncoder) {
         return args -> {

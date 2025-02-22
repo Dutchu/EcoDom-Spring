@@ -14,7 +14,7 @@ public interface UserService {
     UserCreatedDto register(AppUser user);
 //    UserCreatedDto save(UserSignUpHashedDTO user);
 //    Long getFacilityId(String username);
-    Optional<AppUser> findWithAuthoritiesByUsername(String username);
+    AppUser findWithAuthoritiesByUsername(String username);
     Page<UserPreviewDto> getAllToReview(Pageable pageable);
     boolean activateUsers(List<Long> selectedUsers);
 }

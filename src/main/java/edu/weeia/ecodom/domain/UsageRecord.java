@@ -20,12 +20,11 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class UsageRecord extends BaseAuditingEntity {
-
+//
     @ManyToOne
-    Device deviceId;
-    LocalDate date;
-    LocalDateTime startTime;
-    LocalDateTime endTime;
-    Float  totalConsumption_kWh;
-    Float  cost;
+    Device device;
+    @ManyToOne
+    UsageHistory usageHistory;
+    LocalDateTime timestamp;
+    Float consumption_W;
 }

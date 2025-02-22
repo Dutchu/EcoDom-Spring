@@ -1,34 +1,54 @@
 package edu.weeia.ecodom.controllers;
 
-import edu.weeia.ecodom.api.v1.mapper.HouseMapper;
+import edu.weeia.ecodom.api.v1.model.HouseCreateDto;
+import edu.weeia.ecodom.api.v1.model.HouseDto;
+import edu.weeia.ecodom.security.model.response.MessageResponse;
+import edu.weeia.ecodom.services.HouseService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
-import edu.weeia.ecodom.repositories.HouseRepository;
-import edu.weeia.ecodom.api.v1.model.HouseDto;
 
 @RestController
 @RequestMapping("/api/houses")
 public class HouseController {
 
-    private final HouseRepository houseRepository;
+    private final HouseService houseService;
 
-    public HouseController(HouseRepository houseRepository) {
-        this.houseRepository = houseRepository;
+    public HouseController(HouseService houseService) {
+        this.houseService = houseService;
     }
 
     @GetMapping
     public List<HouseDto> getAllHouses() {
-        return houseRepository.findAll()
-                .stream()
-                .map(HouseMapper.INSTANCE::toGetUserHousesDto)
-                .collect(Collectors.toList());
+        List<HouseDto> all = houseService.findAll();
+        return all;
     }
 
     @PostMapping(path = "/create")
-    public String createHouse() {
-        return "House Created";
+    public ResponseEntity<?> createHouse(@AuthenticationPrincipal UserDetails principal,
+                                         @Valid @RequestBody HouseCreateDto houseDto) {
+        var createdHouse = houseService.create(houseDto, principal.getUsername());
+        return ResponseEntity.ok().body(createdHouse);
+    }
+
+    @PostMapping(path = "/bootstrap")
+    public ResponseEntity<?> bootstrap() {
+        var result = ResponseEntity
+                .status(500)
+                .body(new MessageResponse("Something went wrong!"));
+        try {
+            houseService.bootstrap();
+            result = ResponseEntity
+                    .status(201)
+                    .body(new MessageResponse("Git!"));
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+        return result;
     }
 
 //    @PostMapping

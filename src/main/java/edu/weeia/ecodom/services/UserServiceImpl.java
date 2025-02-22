@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,11 +49,13 @@ public class UserServiceImpl implements UserService {
 
     public Optional<AppUser> findWithAuthoritiesByEmail(String email) {
         return userRepository.findOneWithAuthoritiesByEmail(email);
+
     }
 
     @Override
-    public Optional<AppUser> findWithAuthoritiesByUsername(String username) {
-        return userRepository.findOneWithAuthoritiesByUsername(username);
+    public AppUser findWithAuthoritiesByUsername(String username) {
+        return userRepository.findOneWithAuthoritiesByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Couldn't find username: " + username));
     }
 
     @Override

@@ -31,8 +31,6 @@ spring:
               - openid
               - profile
               - email
-  config:
-    import: [ "classpath:breeds.properties", "classpath:cert.properties" ]
 server:
   port: 8081
 logging:
@@ -41,12 +39,12 @@ logging:
     thymeleaf: DEBUG
     org.hibernate: DEBUG
 frontend:
-  url: http://localhost:4000
+  url: http://localhost:3000
 external:
   tariff:
     api:
       base-url: https://energy-instrat-api.azurewebsites.net/api/prices/energy_price_rdn_hourly?
 secrets:
   jwt:
-    key: SECRETS_JWT_KEY
+    key: ${SECRETS_JWT_KEY}
     expirationMs: 172800000

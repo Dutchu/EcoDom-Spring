@@ -135,8 +135,7 @@ public class AuthController {
 
     @GetMapping("/user")
     public ResponseEntity<?> getUserDetails(@AuthenticationPrincipal UserDetails userDetails) {
-        AppUser user = userService.findWithAuthoritiesByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new UsernameNotFoundException("Couldn't find user:" + userDetails.getUsername()));
+        AppUser user = userService.findWithAuthoritiesByUsername(userDetails.getUsername());
 
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(item -> item.getAuthority())

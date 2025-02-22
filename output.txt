@@ -1,0 +1,478 @@
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\services\websocket\DeviceStateManager.java]
+package edu.weeia.ecodom.services.websocket;
+
+import edu.weeia.ecodom.api.v1.mapper.UsageHistoryMapper;
+import edu.weeia.ecodom.api.v1.model.HouseEnergySummaryDto;
+import edu.weeia.ecodom.domain.Device;
+import edu.weeia.ecodom.domain.UsageHistory;
+import edu.weeia.ecodom.domain.UsageRecord;
+import edu.weeia.ecodom.services.DeviceService;
+import edu.weeia.ecodom.services.SimulationService;
+import edu.weeia.ecodom.services.UsageHistoryService;
+import edu.weeia.ecodom.services.UsageRecordService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+
+
+@Service
+@RequiredArgsConstructor
+public class DeviceStateManager {
+    private final DeviceService deviceService;
+    private final UsageRecordService usageRecordService;
+    private final UsageHistoryService usageHistoryService;
+    private final SimulationService simulationService;
+    private final DeviceStatusPublisher statusPublisher;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @Transactional
+    public void updateDeviceState(Long deviceId, boolean newState) {
+        Device device = deviceService.findById(deviceId);
+        boolean oldState = device.getIsActive();
+
+        if (oldState == newState) {
+            return;
+        }
+
+        device.setIsActive(newState);
+        deviceService.save(device);
+
+        if (newState) {
+            handleActivation(device);
+        } else {
+            handleDeactivation(device);
+        }
+
+        // Publish updated status
+        statusPublisher.publishDeviceStatus(device);
+    }
+
+    private void handleActivation(Device device) {
+        // Create new usage history record
+        UsageHistory history = new UsageHistory();
+        history.setDevice(device);
+        history.setStartTime(LocalDateTime.now());
+        var savedHistory = usageHistoryService.save(history);
+
+        // Start simulation
+        simulationService.startSimulationForDevice(device, savedHistory);
+    }
+
+    private void handleDeactivation(Device device) {
+        // Find and complete the active history
+
+        var history = usageHistoryService.findActiveHistoryByDevice(device);
+        if (history != null) {
+            LocalDateTime endTime = LocalDateTime.now();
+            history.setEndTime(endTime);
+
+            // Get all usage records for this period
+            List<UsageRecord> records = usageRecordService.findByDeviceAndTimestampBetween(
+                    device,
+                    history.getStartTime(),
+                    endTime
+            );
+
+            float energyUsedWh = 0f;
+            if (!records.isEmpty()) {
+                // Calculate total duration in hours
+                long durationMillis = Duration.between(history.getStartTime(), endTime).toMillis();
+                float durationHours = durationMillis / (1000f * 3600f);
+
+                // Calculate the average power (in watts) during this period
+                float sumPower = records.stream()
+                        .map(UsageRecord::getConsumption_W)
+                        .reduce(0f, Float::sum);
+                float averagePower = sumPower / records.size();
+
+                // Energy (in Wh) = Average Power (W) * Duration (h)
+                energyUsedWh = averagePower * durationHours / 1000;
+            }
+
+            history.setEnergyUsed_Wh(energyUsedWh);
+
+            history.setUsageRecords(new HashSet<>(records)); // Add reference to records
+            usageHistoryService.save(history);
+
+            // Stop simulation
+            simulationService.stopSimulationForDevice(device);
+
+            // Publish history update
+            messagingTemplate.convertAndSend(
+                    "/topic/house/" + device.getHouse().getId() + "/device/" + device.getId() + "/history",
+                    UsageHistoryMapper.INSTANCE.mapToDto(history)
+            );
+        }
+    }
+
+    public HouseEnergySummaryDto getHouseEnergySummary(Long houseId, LocalDate date) {
+        List<UsageHistory> histories = usageHistoryService.findByHouseAndDate(houseId, date);
+
+        Map<Long, Double> deviceEnergy = new HashMap<>();
+        double total = 0.0;
+
+        for (UsageHistory history : histories) {
+            double kWh = history.getEnergyUsed_Wh() / 1000.0;
+            deviceEnergy.merge(history.getDevice().getId(), kWh, Double::sum);
+            total += kWh;
+        }
+
+        return new HouseEnergySummaryDto(date, total, deviceEnergy);
+    }
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\services\websocket\DeviceStatusPublisher.java]
+package edu.weeia.ecodom.services.websocket;
+
+import edu.weeia.ecodom.api.v1.model.DeviceStatusDto;
+import edu.weeia.ecodom.api.v1.model.HouseEnergySummaryDto;
+import edu.weeia.ecodom.domain.Device;
+import edu.weeia.ecodom.domain.House;
+import edu.weeia.ecodom.domain.UsageHistory;
+import edu.weeia.ecodom.services.DeviceService;
+import edu.weeia.ecodom.services.HouseService;
+import edu.weeia.ecodom.services.SimulationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+// DeviceStatusPublisher.java
+@Service
+@RequiredArgsConstructor
+public class DeviceStatusPublisher {
+    private final SimpMessagingTemplate messagingTemplate;
+    private final DeviceService deviceService;
+    private final SimulationService simulationService;
+    private final HouseService houseService;
+
+    @Scheduled(fixedRate = 5000) // 5-second heartbeat
+    public void publishHouseStatuses() {
+        // Get all houses (you might want to optimize this)
+        List<House> houses = houseService.findAllHouses();
+
+        for (House house : houses) {
+            //HOUSE WIDE CONSUMPTION
+            List<DeviceStatusDto> statuses = getDeviceStatuses(house);
+            messagingTemplate.convertAndSend(
+                    "/topic/house/" + house.getId() + "/devices",
+                    statuses
+            );
+            //HOUSE WIDE ENERGY
+        }
+    }
+
+    public void publishDeviceStatus(Device device) {
+        DeviceStatusDto status = createDeviceStatus(device);
+        messagingTemplate.convertAndSend(
+                "/topic/house/" + device.getHouse().getId() + "/device/" + device.getId(),
+                status
+        );
+    }
+
+    private List<DeviceStatusDto> getDeviceStatuses(House house) {
+        return deviceService.findAllByHouse(house)
+                .stream()
+                .map(this::createDeviceStatus)
+                .collect(Collectors.toList());
+    }
+
+    private DeviceStatusDto createDeviceStatus(Device device) {
+        float consumption = Boolean.TRUE.equals(device.getIsActive())
+                ? (float) SimulationService.getConsumption(device)
+                : 0f;
+
+        return new DeviceStatusDto(
+                device.getId(),
+                device.getType().getName().name(),
+                device.getIsActive(),
+                consumption,
+                LocalDateTime.now()
+        );
+    }
+}
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\services\websocket\DeviceWebSocketController.java]
+package edu.weeia.ecodom.services.websocket;
+
+import edu.weeia.ecodom.api.v1.model.DeviceStatusDto;
+import lombok.AllArgsConstructor;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.stereotype.Controller;
+
+@AllArgsConstructor
+@Controller
+public class DeviceWebSocketController {
+    private final DeviceStateManager deviceStateManager;
+
+    // DeviceWebSocketController.java
+    @MessageMapping("/house/{houseId}/device/{deviceId}/toggle")
+    public void toggleDevice(
+            @DestinationVariable Long houseId,
+            @DestinationVariable Long deviceId,
+            DeviceStatusDto request
+    ) {
+        // Remove @SendTo annotation
+        deviceStateManager.updateDeviceState(deviceId, request.isActive());
+    }
+}
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\domain\Device.java]
+package edu.weeia.ecodom.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/***
+ * houseId: References the house where the device is located.
+ * name: Name of the device (e.g. “Pralka”, “Lodówka”, “Grzejnik elektryczny”).
+ * nominalPower_kW: Nominal power usage in kW (e.g., 1.2 for a heater).
+ * Each device can have one or more schedules (SCHEDULE) and multiple usage records (USAGE_RECORD) to track real or simulated usage.
+ */
+@Entity
+@Getter
+@Setter
+public class Device extends BaseAuditingEntity {
+
+    Boolean isActive = false;
+    Float nominalPower_W;
+
+    @ManyToOne
+    private DeviceType type;
+
+    @ManyToOne
+    House house;
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "device")
+    List<UsageHistory> usageHistory = new ArrayList<>();
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "device")
+    Set<UsageRecord> usageRecords = new HashSet<>();
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\domain\UsageHistory.java]
+package edu.weeia.ecodom.domain;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+
+/***
+ * deviceId: References the device.
+ * dayOfWeek: Day for which the schedule is valid (e.g. “Monday”).
+ * startTime / endTime: Hours of operation for the device on that day (e.g. 08:00 to 10:30).
+ * The schedule helps your simulator or scheduler figure out how long a device runs on each day and automatically calculate consumption.
+ */
+@Entity
+@Getter
+@Setter
+public class UsageHistory extends BaseAuditingEntity {
+    @ManyToOne
+    Device device;
+    @OneToMany(fetch = FetchType.LAZY)
+    Set<UsageRecord> usageRecords;
+    LocalDateTime startTime; // e.g. "isActive on Device from false to true"
+    LocalDateTime endTime;   // e.g. "isActive on Device from true to false"
+    Float energyUsed_Wh; // Aggregate data from
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\domain\UsageRecord.java]
+package edu.weeia.ecodom.domain;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+/***
+ * deviceId: References the device.
+ * date: The specific date of usage.
+ * startTime / endTime: Time window of actual usage.
+ * totalConsumption_kWh: Calculated energy usage in kWh for that record.
+ * cost: Total cost based on the relevant day/night tariff or any real-time calculation.
+ * Depending on your design, these UsageRecords might be automatically generated from Schedule + nominalPower_kW + the day/night tariffs.
+ */
+@Entity
+@Getter
+@Setter
+public class UsageRecord extends BaseAuditingEntity {
+//
+    @ManyToOne
+    Device device;
+    @ManyToOne
+    UsageHistory usageHistory;
+    LocalDateTime timestamp;
+    Float consumption_W;
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\configuration\SchedulingConfig.java]
+package edu.weeia.ecodom.configuration;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+@Configuration
+@EnableScheduling
+public class SchedulingConfig {
+
+    @Bean
+    @Primary    public ThreadPoolTaskScheduler threadPoolTaskScheduler(){
+        ThreadPoolTaskScheduler threadPoolTaskScheduler
+                = new ThreadPoolTaskScheduler();
+        threadPoolTaskScheduler.setPoolSize(5);
+        threadPoolTaskScheduler.setThreadNamePrefix(
+                "ThreadPoolTaskScheduler");
+        return threadPoolTaskScheduler;
+    }
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\configuration\WebSocketConfig.java]
+package edu.weeia.ecodom.configuration;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic");
+        config.setApplicationDestinationPrefixes("/app");
+    }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*") // For development only
+                .withSockJS();
+    }
+}
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\services\DeviceEnergyService.java]
+package edu.weeia.ecodom.services;
+
+import edu.weeia.ecodom.api.v1.model.DailyDeviceEnergyDto;
+import edu.weeia.ecodom.api.v1.model.DeviceEnergy;
+import edu.weeia.ecodom.domain.UsageHistory;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class DeviceEnergyService {
+    private final UsageHistoryService usageHistoryService;
+    private final DeviceService deviceService;
+
+    public DailyDeviceEnergyDto getDailyDeviceEnergy(Long houseId, LocalDate date) {
+        List<UsageHistory> histories = usageHistoryService.findByHouseAndDate(houseId, date);
+
+        Map<Long, DeviceEnergy> deviceEnergyMap = histories.stream()
+                .collect(Collectors.groupingBy(
+                        history -> history.getDevice().getId(),
+                        Collectors.summingDouble(history -> history.getEnergyUsed_Wh() / 1000.0)
+                ))
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> new DeviceEnergy(
+                                deviceService.findById(entry.getKey()).getType().getName().name(),
+                                entry.getValue()
+                        )
+                ));
+
+        return new DailyDeviceEnergyDto(date, deviceEnergyMap);
+    }
+}
+
+
+[C:\Users\Bartek\work\projects\studia\www\ecodom\spring-ecodom\src\main\java\edu\weeia\ecodom\controllers\EnergyController.java]
+package edu.weeia.ecodom.controllers;
+
+import edu.weeia.ecodom.api.v1.model.DailyDeviceEnergyDto;
+import edu.weeia.ecodom.services.DeviceEnergyService;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/houses/{houseId}/energy")
+public class EnergyController {
+    private final DeviceEnergyService energyService;
+
+    public EnergyController(DeviceEnergyService energyService) {
+        this.energyService = energyService;
+    }
+
+    @GetMapping
+    public List<DailyDeviceEnergyDto> getEnergyData(
+            @PathVariable Long houseId,
+            @RequestParam(defaultValue = "7") int days
+    ) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+
+        return startDate.datesUntil(endDate.plusDays(1))
+                .map(date -> energyService.getDailyDeviceEnergy(houseId, date))
+                .collect(Collectors.toList());
+    }
+}
+
+
+

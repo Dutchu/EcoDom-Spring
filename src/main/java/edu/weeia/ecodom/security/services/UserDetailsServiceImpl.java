@@ -15,9 +15,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetailsImpl loadUserByUsername(String username) {
-        return userService.findWithAuthoritiesByUsername(username)
-                .map(UserDetailsImpl::new)
-                .orElseThrow(() -> new UsernameNotFoundException(" User with login:" + username + " was not found in the " + " database "));
+        return new UserDetailsImpl(userService.findWithAuthoritiesByUsername(username));
+
+//                .orElseThrow(() -> new UsernameNotFoundException(" User with login:" + username + " was not found in the " + " database "));
 
 //        App result = userFromDatabase
 //                .map(() -> getCustomUserDetails())

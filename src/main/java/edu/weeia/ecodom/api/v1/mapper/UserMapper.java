@@ -3,6 +3,7 @@ package edu.weeia.ecodom.api.v1.mapper;
 import edu.weeia.ecodom.api.v1.model.UserCreatedDto;
 import edu.weeia.ecodom.api.v1.model.UserPreviewDto;
 import edu.weeia.ecodom.domain.AppUser;
+import edu.weeia.ecodom.security.services.UserDetailsImpl;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -20,7 +21,6 @@ public interface UserMapper {
     @Mapping(source = "createdDate", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "avatar", target = "icon", qualifiedByName = "stringFromBytes")
     UserPreviewDto mapForPreview(AppUser user);
-
 
     UserCreatedDto mapAfterCreate(AppUser user);
 

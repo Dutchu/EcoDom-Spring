@@ -1,6 +1,8 @@
 package edu.weeia.ecodom.domain;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import lombok.Getter;
@@ -22,12 +24,13 @@ import java.util.Set;
 @Getter
 @Setter
 public class House extends BaseAuditingEntity {
+    @JsonBackReference
     @ManyToOne
-    AppUser userId;
-    @OneToMany(mappedBy = "houseId")
+    AppUser appUser;
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "house")
     Set<Device> devices = new HashSet<>();
-    @OneToMany(mappedBy = "houseId")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "house")
     Set<PhotovoltaicSystem> systems = new HashSet<>();
     String name;
-    String Address;
+    String address;
 }

@@ -10,7 +10,7 @@ import lombok.Setter;
 @Setter
 public class Battery extends BaseAuditingEntity {
     @ManyToOne
-    PhotovoltaicSystem photovoltaicSystemId;
+    PhotovoltaicSystem photovoltaicSystem;
     Float capacity_kWh;
     Float currentCharge_kWh;
 }

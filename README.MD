@@ -1,104 +1,152 @@
+# EcoDom
 
-# Cynodesu Project
-
-## Overview
-
-Cynodesu is a Spring Boot application that serves as a dodgy doggy Doge application. It includes features for managing dogs, facilities, competitions, and more. The application uses PostgreSQL for database management, Spring Security for securing endpoints, and a variety of other libraries for various functionalities like data validation, web MVC, Thymeleaf for templating, JWT for authentication, etc.
+EcoDom is a **Spring Boot** application that integrates **PostgreSQL**, **OAuth2 authentication**, **WebSockets**, and various microservices to manage dogs and EcoDom+ entities.
 
 ## Prerequisites
 
-To run this project, ensure you have the following installed:
+Ensure you have the following installed on your system:
 
-- Java 17
-- Docker
-- Docker Compose
-- Maven
+- **Java 17** or later
+- **Maven** (for dependency management)
+- **Docker & Docker Compose** (for running PostgreSQL)
+- **Node.js** (for the frontend if required)
+- **PostgreSQL Client** (for database management)
 
-## Installation
+---
 
-1. **Clone the Repository:**
+## Getting Started
 
-   ```bash
-   git clone https://github.com/your-repo/cynodesu.git
-   cd cynodesu
-   ```
+### 1. Clone the Repository
 
-2. **Build the Application:**
-
-   Use Maven to package the application:
-
-   ```bash
-   mvn clean package
-   ```
-
-   This command will compile the application, run the tests, and package it into a JAR file.
-
-3. **Configure the Application:**
-
-   The application uses several configuration files:
-
-    - `application.yml`: Main configuration file.
-    - `application-dev.yml`: Development environment configuration.
-    - `breeds.properties`: Contains properties related to dog breeds.
-    - `cert.properties`: Contains properties related to certificates.
-
-   Make sure these files are correctly configured for your environment.
-
-## Running the Application
-
-### Using Docker Compose
-
-The project includes a `docker-compose.yml` file to set up the environment:
-
-1. **Run Docker Compose:**
-
-   ```bash
-   docker-compose up -d
-   ```
-
-   This command will start all the necessary services, such as the PostgreSQL database.
-
-2. **Access the Application:**
-
-   The application should now be running and accessible at [http://localhost:8080](http://localhost:8080).
-
-### Without Docker
-
-Alternatively, you can run the application without Docker:
-
-1. **Start the PostgreSQL Database:**
-
-   Ensure you have a running PostgreSQL instance. Update your `application.yml` or `application-dev.yml` file with the correct database connection settings.
-
-2. **Run the Application:**
-
-   ```bash
-   mvn spring-boot:run
-   ```
-
-   The application will start on [http://localhost:8080](http://localhost:8080).
-
-## Logging Configuration
-
-The application uses Logback for logging, configured in the `logback-spring.xml` file:
-
-- **Console Appender:** Logs to the console.
-- **File Appender:** Logs to `logs/myapp.log` and rolls over daily, keeping 30 days of logs.
-
-You can adjust the log level and other settings in the `logback-spring.xml` file.
-
-## Running Tests
-
-To run the unit and integration tests:
-
-```bash
-mvn test
+```sh
+git clone https://github.com/dutchu/EcoDom-Spring.git
 ```
 
-## Contributing
+### 2. Configure the Database
 
-Contributions are welcome! Please fork the repository and create a pull request with your changes.
+The application uses **PostgreSQL** as its database. You can either run PostgreSQL manually or use Docker.
+
+#### Option 1: Run PostgreSQL using Docker Compose
+
+```sh
+docker-compose up -d
+```
+
+This starts a PostgreSQL container with the following credentials:
+
+- **Username:** eco
+- **Password:** dom
+- **Database:** dev
+- **Port:** 5454
+
+#### Option 2: Run PostgreSQL Manually
+
+If you prefer running PostgreSQL manually, update your `application.yml` file with your local database connection details.
+
+---
+
+### 3. Configure Spring Profiles
+
+The application supports different profiles for development and production environments.
+To specify a profile, use the following command:
+
+```sh
+export SPRING_PROFILES_ACTIVE=dev  # or 'prod' for production
+```
+
+Available profiles:
+
+- `dev` (default, for local development)
+
+---
+
+### 4. Configure Environment Variables
+
+The application requires some sensitive values to be set as environment variables.
+
+```sh
+export SECRETS_JWT_KEY=your_jwt_secret_key
+export OAUTH_CLIENT_REGISTRATION_GITHUB_CLIENT_ID=your_github_client_id
+export OAUTH_CLIENT_REGISTRATION_GITHUB_CLIENT_SECRET=your_github_client_secret
+export OAUTH_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=your_google_client_id
+export OAUTH_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+Alternatively, create a `.env` file and add the values.
+
+---
+
+### 5. Build and Run the Application
+
+#### Using Maven
+
+To run the application with the `dev` profile and environment variables from a `.env` file:
+
+```sh
+export $(grep -v '^#' .env | xargs)
+mvn clean install
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+#### Running as a JAR
+
+To run the application as a JAR with the `dev` profile:
+
+```sh
+export $(grep -v '^#' .env | xargs)
+java -jar target/ecodom-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+The application will start on port **8081**.
+
+---
+
+### 6. Frontend Configuration
+
+The frontend is expected to run on `http://localhost:3000`. Ensure your frontend is set up correctly to interact with the backend.
+
+---
+
+### 7. API Documentation
+
+Once the application is running, you can access the API documentation:
+
+- **Swagger UI:** `http://localhost:8081/swagger-ui.html`
+- **API Endpoints:** Defined in your controllers
+
+---
+
+## Logging
+
+Logging is configured using **Logback**, with logs written to the console and a file at `logs/myapp.log`. Log levels are set as follows:
+
+- `org.springframework.security: DEBUG`
+- `thymeleaf: DEBUG`
+- `org.hibernate: DEBUG`
+
+---
+
+## Deployment
+
+For production deployment, ensure:
+
+- **Environment variables** are securely stored.
+- **Database credentials** are configured properly.
+- **Frontend URL** is updated in `application.yml`.
+- **Security configurations** are properly managed.
+
+---
+
+## What's Missing?
+
+- **Frontend setup:** If there is a separate frontend, its setup and installation steps should be documented.
+- **API details:** A list of available endpoints, request formats, and responses.
+- **Admin credentials or role-based access configuration.**
+- **Production deployment guide:** Instructions for deploying on a cloud provider.
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
+

@@ -15,10 +15,10 @@ import java.util.Set;
 public class PhotovoltaicSystem extends BaseAuditingEntity {
 
     @ManyToOne
-    House houseId;
-    @OneToMany(mappedBy = "photovoltaicSystemId")
+    House house;
+    @OneToMany(mappedBy = "photovoltaicSystem")
     Set<Battery> batteries = new HashSet<>();
-    @OneToMany(mappedBy = "photovoltaicSystemId")
+    @OneToMany(mappedBy = "photovoltaicSystem")
     Set<ProductionRecord> records = new HashSet<>();
     Float panelArea_m2;
     Float maxPower_kW;

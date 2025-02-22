@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @Setter
 public class ProductionRecord extends BaseAuditingEntity {
     @ManyToOne
-    PhotovoltaicSystem photovoltaicSystemId;
+    PhotovoltaicSystem photovoltaicSystem;
     LocalDate date;
     Float producedEnergy_kWh;
 }
