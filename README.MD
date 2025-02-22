@@ -19,7 +19,7 @@ Ensure you have the following installed on your system:
 ### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/dutchu/EcoDom-Spring.git
+git clone https://github.com/dutchu/spring-ecodom.git
 ```
 
 ### 2. Configure the Database
@@ -47,8 +47,7 @@ If you prefer running PostgreSQL manually, update your `application.yml` file wi
 
 ### 3. Configure Spring Profiles
 
-The application supports different profiles for development and production environments.
-To specify a profile, use the following command:
+The application supports different profiles for development and production environments. To specify a profile, use the following command:
 
 ```sh
 export SPRING_PROFILES_ACTIVE=dev  # or 'prod' for production
@@ -123,6 +122,22 @@ Logging is configured using **Logback**, with logs written to the console and a 
 - `org.springframework.security: DEBUG`
 - `thymeleaf: DEBUG`
 - `org.hibernate: DEBUG`
+
+#### Disabling Logging
+
+To disable logging, modify `application.yml` by setting the logging level to `OFF`:
+
+```yaml
+logging:
+  level:
+    root: OFF
+```
+
+Alternatively, run the application with the following environment variable:
+
+```sh
+export LOGGING_LEVEL_ROOT=OFF
+```
 
 ---
 
